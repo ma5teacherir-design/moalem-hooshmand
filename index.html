@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>معلم هوشمند | کلاس ۶/۲</title>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Tahoma,Arial,sans-serif;background:#f3f6fb;color:#263445}
+header{background:#173b65;color:white;padding:25px;text-align:center}
+header h1{margin:0 0 10px}
+.container{max-width:1100px;margin:30px auto;padding:0 20px}
+.dashboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+.card{background:white;border-radius:16px;padding:22px;box-shadow:0 4px 15px #0000000d;cursor:pointer;border:1px solid #e5eaf0;transition:.2s}
+.card:hover{transform:translateY(-3px)}
+.card h3{color:#173b65;margin-top:10px}
+.card p{color:#718096;font-size:14px;line-height:1.8}
+.icon{font-size:30px}
+.section{display:none;background:white;padding:25px;border-radius:16px;margin-top:20px}
+button{background:#173b65;color:white;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;font-family:inherit;margin:5px 0}
+button.delete{background:#a83232}
+input,textarea,select{display:block;width:100%;max-width:550px;padding:10px;margin:10px 0;font-family:inherit;border:1px solid #ccd5df;border-radius:8px;background:white}
+textarea{min-height:90px}
+label{display:block;margin-top:12px}
+.item{border:1px solid #e1e7ee;border-radius:10px;padding:12px;margin:12px 0;background:#fbfcfe}
+.item p{white-space:pre-wrap;line-height:1.8}
+.student-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;cursor:grab}
+.student-row:active{cursor:grabbing}
+.student-row.dragging{opacity:.4}
+.student-row.drag-over{border:2px dashed #173b65;background:#eaf3ff}
+.student-number{min-width:34px;height:34px;display:grid;place-items:center;background:#173b65;color:white;border-radius:50%;font-weight:bold}
+.student-photo{width:58px;height:58px;object-fit:cover;border-radius:50%;border:2px solid #dbe5ef;background:#eef2f7}
+.profile{display:flex;align-items:center;gap:12px;background:#f4f8fc;border:1px solid #dce6ef;padding:12px;border-radius:12px;margin:12px 0;max-width:550px}
+.profile img{width:75px;height:75px;object-fit:cover;border-radius:50%;background:#e5eaf0}
+.profile .placeholder{width:75px;height:75px;border-radius:50%;background:#e5eaf0;display:grid;place-items:center;font-size:28px}
+table{width:100%;border-collapse:collapse;margin:15px 0;min-width:550px}
+th,td{border:1px solid #dce4ed;padding:9px;text-align:center}
+th{background:#edf3f9}
+.table-wrap{overflow-x:auto}
+.small{font-size:13px;color:#718096}
+.event-student-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
+.event-student-list label{display:flex;align-items:center;gap:8px;margin:4px 0;background:#fff;padding:8px;border:1px solid #e1e7ee;border-radius:8px}
+.event-student-list input{width:auto;margin:0}
+.login-box{max-width:500px;margin:25px auto;padding:20px;background:white;border-radius:14px;box-shadow:0 4px 15px #0000000d}
+.login-box input{max-width:100%}
+#cloudMessage{line-height:1.8;color:#173b65;overflow-wrap:anywhere}
+@media(max-width:600px){header{padding:20px 10px}.container{padding:0 12px}.section{padding:16px}}
+</style>
+</head>
+
+<body>
+<header>
+  <h1>معلم هوشمند 📚</h1>
+  <p>مدیریت کلاس ششم | پایه ۶/۲</p>
+</header>
+
+<div id="cloudLogin" class="login-box">
+  <h2>ورود به معلم هوشمند</h2>
+  <p class="small">با یک ایمیل و رمز ثابت، اطلاعات کلاس را روی گوشی و کامپیوتر مشترک نگه دار.</p>
+  <input id="cloudEmail" type="email" placeholder="ایمیل">
+  <input id="cloudPassword" type="password" placeholder="رمز عبور">
+  <button onclick="cloudLogin()">ورود / ساخت حساب</button>
+  <p id="cloudMessage">برای ورود یا ساخت حساب، ایمیل و رمز را وارد کن.</p>
+</div>
+
+<div id="appContent" style="display:none">
+<main class="container">
+
+<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+  <p id="syncStatus" class="small">در حال اتصال...</p>
+  <button onclick="cloudLogout()">خروج از حساب</button>
+</div>
+
+<div id="dashboard" class="dashboard">
+  <div class="card" onclick="openSection('students')"><div class="icon">👨‍🎓</div><h3>دانش‌آموزان</h3><p>مدیریت نام و عکس دانش‌آموزان</p></div>
+  <div class="card" onclick="openSection('grades')"><div class="icon">📝</div><h3>ارزشیابی</h3><p>ثبت ارزشیابی توصیفی</p></div>
+  <div class="card" onclick="openSection('monthlyReport')"><div class="icon">📋</div><h3>کارنامه ماهانه</h3><p>مشاهده همه درس‌های یک ماه</p></div>
+  <div class="card" onclick="openSection('yearProgress')"><div class="icon">📈</div><h3>کارنامه پیشرفت</h3><p>مقایسه روند پیشرفت در همه ماه‌ها</p></div>
+  <div class="card" onclick="openSection('attendance')"><div class="icon">📅</div><h3>حضور و غیاب</h3><p>ثبت حضور، غیبت و تأخیر</p></div>
+  <div class="card" onclick="openSection('homework')"><div class="icon">📚</div><h3>تکالیف</h3><p>ثبت و پیگیری تکالیف کلاس</p></div>
+  <div class="card" onclick="openSection('reminders')"><div class="icon">🔔</div><h3>یادآوری کارها</h3><p>مدیریت کارهای مهم</p></div>
+  <div class="card" onclick="openSection('events')"><div class="icon">📖</div><h3>وقایع کلاس</h3><p>ثبت اتفاقات و فعالیت‌ها</p></div>
+  <div class="card" onclick="openSection('progress')"><div class="icon">📘</div><h3>پیشرفت تدریس</h3><p>ثبت صفحات تدریس‌شده</p></div>
+  <div class="card" onclick="openSection('meetings')"><div class="icon">👨‍👩‍👦</div><h3>جلسات اولیا</h3><p>ثبت موضوع کلی جلسات</p></div>
+  <div class="card" onclick="openSection('parentTalks')"><div class="icon">💬</div><h3>گفت‌وگو با والدین</h3><p>ثبت صحبت‌های جداگانه با هر ولی</p></div>
+</div>
+
+<section id="students" class="section">
+<button onclick="showDashboard()">بازگشت به داشبورد</button>
+<h2>دانش‌آموزان کلاس ۶/۲</h2>
+<p class="small">برای تغییر ترتیب، دانش‌آموز را با ماوس بگیر و روی جایگاه دلخواه رها کن. شماره‌ها خودکار مرتب می‌شوند.</p>
+<input id="studentName" placeholder="نام و نام خانوادگی دانش‌آموز">
+<label for="studentPhoto">عکس دانش‌آموز (اختیاری):</label>
+<input id="studentPhoto" type="file" accept="image/*">
+<button onclick="addStudent()">افزودن دانش‌آموز</button>
+<div id="studentList"></div>
+</section>
+
+<section id="grades" class="section">
+<button onclick="showDashboard()">بازگشت به داشبورد</button>
+<h2>ثبت ارزشیابی توصیفی</h2>
+<label>دانش‌آموز:</label><select id="gradeStudent" onchange="showProfile('gradeStudent','gradeProfile')"></select>
+<div id="gradeProfile"></div>
+<label>ماه:</label><select id="gradeMonth"></select>
+<label>درس:</label><select id="gradeSubject"></select>
+<label>سطح ارزشیابی:</label>
+<select id="gradeLevel"><option>خیلی خوب</option><option>خوب</option><option>قابل قبول</option><option>نیاز به تلاش بیشتر</option></select>
+<label>توضیحات:</label><textarea id="gradeNote" placeholder="توضیحات اختیاری"></textarea>
+<button onclick="saveGrade()">ثبت ارزشیابی</button>
+<h3>ارزشیابی‌های ثبت‌شده</h3><div id="gradeList"></div>
+</section>
+
+<section id="monthlyReport" class="section">
+<button onclick="showDashboard()">بازگشت به داشبورد</button>
+<h2>کارنامه ماهانه</h2>
+<label>دانش‌آموز:</label><select id="reportStudent" onchange="showProfile('reportStudent','reportProfile');renderMonthlyReport()"></select>
+<div id="reportProfile"></div>
+<label>ماه:</label><select id="reportMonth" onchange="renderMonthlyReport()"></select>
+<div id="monthlyReportContent"></div>
+</section>
+
+<section id="yearProgress" class="section">
+<button onclick="showDashboard()">بازگشت به داشبورد</button>
+<h2>کارنامه پیشرفت تحصیلی</h2>
+<label>دانش‌آموز:</label><select id="yearStudent" onchange="showProfile('yearStudent','yearProfile');renderYearProgress()"></select>
+<div id="yearProfile"></div>
+<div id="yearProgressContent"></div>
+<p class="small">روند ارزشیابی هر درس در ماه‌های مختلف نمایش داده می‌شود.</p>
+</section>
+
+<section id="attendance" class="section">
+<button onclick="showDashboard()">بازگشت به داشبورد</button>
+<h2>حضور و غیاب کلاس ۶/۲</h2>
+<label>تاریخ:</label><input class="jalali-date" id="attendanceDate" placeholder="انتخاب تاریخ شمسی" readonly>
+<div id="attendanceList"></div>
+<button onclick="saveAttendance()">ذخیره حضور و غیاب</button>
+</section>
+
+<section id="homework" class="section">
+<button onclick="showDashboard()">بازگشت به داشبورد</button>
+<h2>تکالیف کلاس ۶/۲</h2>
+<label>تاریخ تکلیف:</label><input class="jalali-date" id="homeworkDate" placeholder="انتخاب تاریخ شمسی" readonly>
+<input id="homeworkSubject" placeholder="نام درس">
+<textarea id="homeworkText" placeholder="تکلیف امروز"></textarea>
+<button onclick="addHomework()">ثبت تکلیف</button><div id="homeworkList"></div>
+</section>
+
+<section id="reminders" class="section">
+<button onclick="showDashboard()">بازگشت به داشبورد</button>
+<h2>یادآوری کارها</h2>
+<input id="reminderTitle" placeholder="عنوان کار">
+<label>تاریخ یادآوری:</label><input class="jalali-date" id="reminderDate" placeholder="انتخاب تاریخ شمسی" readonly>
+<textarea id="reminderText" placeholder="توضیحات اختیاری"></textarea>
+<button onclick="addReminder()">ثبت یادآوری</button><div id="reminderList"></div>
+</section>
+
+<section id="events" class="section">
+<button onclick="showDashboard()">بازگشت به داشبورد</button>
+<h2>وقایع کلاس</h2>
+<input id="eventTitle" placeholder="عنوان اتفاق یا فعالیت">
+<label>دانش‌آموزان مرتبط (می‌توانی چند نفر را انتخاب کنی):</label>
+<div id="eventStudents" class="event-student-list item"></div>
+<label>تاریخ:</label><input class="jalali-date" id="eventDate" placeholder="انتخاب تاریخ شمسی" readonly>
+<textarea id="eventText" placeholder="شرح اتفاق یا فعالیت کلاس"></textarea>
+<button onclick="addEvent()">ثبت واقعه</button><div id="eventList"></div>
+</section>
+
+<section id="progress" class="section">
+<button onclick="showDashboard()">بازگشت به داشبورد</button>
+<h2>پیشرفت تدریس</h2>
+<label>کتاب:</label><select id="progressBook"></select>
+<input id="progressPage" placeholder="صفحه یا محدوده صفحات تدریس‌شده">
+<label>تاریخ تدریس:</label><input class="jalali-date" id="progressDate" placeholder="انتخاب تاریخ شمسی" readonly>
+<textarea id="progressNote" placeholder="توضیحات اختیاری"></textarea>
+<button onclick="addProgress()">ثبت پیشرفت تدریس</button><div id="progressList"></div>
+</section>
+
+<section id="meetings" class="section">
+<button onclick="showDashboard()">بازگشت به داشبورد</button>
+<h2>جلسات اولیا</h2>
+<input id="meetingTitle" placeholder="موضوع کلی جلسه">
+<label>تاریخ جلسه:</label><input class="jalali-date" id="meetingDate" placeholder="انتخاب تاریخ شمسی" readonly>
+<textarea id="meetingText" placeholder="توضیحات، موارد مطرح‌شده یا تصمیم‌های جلسه"></textarea>
+<button onclick="addMeeting()">ثبت جلسه</button><div id="meetingList"></div>
+</section>
+
+<section id="parentTalks" class="section">
+<button onclick="showDashboard()">بازگشت به داشبورد</button>
+<h2>گفت‌وگوی جداگانه با والدین</h2>
+<label>دانش‌آموز:</label><select id="talkStudent" onchange="showProfile('talkStudent','talkProfile');renderParentTalks()"></select>
+<div id="talkProfile"></div>
+<input id="talkParent" placeholder="نام پدر، مادر یا ولی">
+<label>تاریخ گفت‌وگو:</label><input class="jalali-date" id="talkDate" placeholder="انتخاب تاریخ شمسی" readonly>
+<textarea id="talkText" placeholder="خلاصه صحبت‌ها، نگرانی‌ها، توافق‌ها و پیگیری بعدی"></textarea>
+<button onclick="addParentTalk()">ثبت گفت‌وگو</button><div id="parentTalkList"></div>
+</section>
+
+</main>
+</div>
+
+<script>
+const SUPABASE_URL = "https://yqtlfyakanxqpwhadcao.supabase.co";
+const SUPABASE_KEY = "sb_publishable_JNhs_k0iwFa8A6VEBznSAQ_3Eo6fOWW";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const CLOUD_KEYS = ["students","grades","attendance","homeworks","reminders","classEvents","teachingProgress","parentMeetings","parentTalks"];
+let cloudUser = null;
+let cloudReady = false;
+let applyingCloudData = false;
+let cloudTimer = null;
+
+function cloudStatus(message){
+  const el=document.getElementById("cloudMessage");
+  if(el)el.textContent=message;
+  const status=document.getElementById("syncStatus");
+  if(status)status.textContent=message;
+}
+
+function readLocalSnapshot(){
+  const snapshot={};
+  CLOUD_KEYS.forEach(key=>{
+    try{
+      snapshot[key]=JSON.parse(localStorage.getItem(key)||(key==="attendance"?"{}":"[]"));
+    }catch{
+      snapshot[key]=key==="attendance"?{}:[];
+    }
+  });
+  return snapshot;
+}
+
+function applyCloudSnapshot(data){
+  applyingCloudData=true;
+  CLOUD_KEYS.forEach(key=>{
+    if(Object.prototype.hasOwnProperty.call(data||{},key)){
+      localStorage.setItem(key,JSON.stringify(data[key]));
+    }
+  });
+  applyingCloudData=false;
+
+  students=normalizeStudents();
+  renderStudents();
+  renderAttendance();
+  renderGrades();
+  renderMonthlyReport();
+  renderYearProgress();
+  renderHomeworks();
+  renderReminders();
+  renderEvents();
+  renderProgress();
+  renderMeetings();
+  renderParentTalks();
+}
+
+async function saveCloudSnapshot(){
+  if(!cloudUser||!cloudReady||applyingCloudData)return;
+  cloudStatus("در حال ذخیرهٔ اطلاعات در فضای ابری...");
+
+  const {error}=await supabaseClient.from("class_data").upsert({
+    owner_id:cloudUser.id,
+    data:readLocalSnapshot(),
+    updated_at:new Date().toISOString()
+  },{onConflict:"owner_id"});
+
+  if(error)cloudStatus("خطا در ذخیرهٔ ابری: "+error.message);
+  else cloudStatus("اطلاعات همگام شد.");
+}
+
+function scheduleCloudSave(){
+  if(!cloudUser||!cloudReady||applyingCloudData)return;
+  clearTimeout(cloudTimer);
+  cloudTimer=setTimeout(saveCloudSnapshot,900);
+}
+
+async function connectCloud(){
+  cloudStatus("در حال دریافت اطلاعات...");
+  const {data,error}=await supabaseClient
+    .from("class_data")
+    .select("data")
+    .eq("owner_id",cloudUser.id)
+    .maybeSingle();
+
+  if(error){
+    cloudStatus("خطا در دریافت اطلاعات: "+error.message);
+    return;
+  }
+
+  if(data&&data.data){
+    const loadCloud=confirm("برای این حساب اطلاعات ابری وجود دارد. اطلاعات ابری روی این دستگاه بارگذاری شود؟\n\nاگر «لغو» را بزنی، اطلاعات همین دستگاه روی فضای ابری ذخیره می‌شود.");
+    if(loadCloud)applyCloudSnapshot(data.data);
+    else{
+      cloudReady=true;
+      await saveCloudSnapshot();
+    }
+  }else{
+    cloudReady=true;
+    await saveCloudSnapshot();
+  }
+
+  cloudReady=true;
+  document.getElementById("cloudLogin").style.display="none";
+  document.getElementById("appContent").style.display="block";
+  cloudStatus("اتصال برقرار است.");
+}
+
+async function cloudLogin(){
+  const email=document.getElementById("cloudEmail").value.trim();
+  const password=document.getElementById("cloudPassword").value;
+
+  if(!email||!password){
+    cloudStatus("ایمیل و رمز عبور را وارد کن.");
+    return;
+  }
+  if(password.length<6){
+    cloudStatus("رمز عبور باید حداقل ۶ کاراکتر باشد.");
+    return;
+  }
+
+  cloudStatus("در حال ورود...");
+  let result=await supabaseClient.auth.signInWithPassword({email,password});
+
+  if(result.error){
+    result=await supabaseClient.auth.signUp({email,password});
+  }
+
+  if(result.error){
+    cloudStatus("ورود یا ساخت حساب انجام نشد: "+result.error.message);
+    return;
+  }
+
+  if(!result.data.session){
+    cloudStatus("حساب ساخته شد. ایمیلت را برای تأیید بررسی کن، سپس دوباره وارد شو.");
+    return;
+  }
+
+  cloudUser=result.data.user;
+  await connectCloud();
+}
+
+async function cloudLogout(){
+  if(!confirm("از حساب خارج شوی؟"))return;
+  await supabaseClient.auth.signOut();
+  cloudUser=null;
+  cloudReady=false;
+  document.getElementById("appContent").style.display="none";
+  document.getElementById("cloudLogin").style.display="block";
+  cloudStatus("از حساب خارج شدی.");
+}
+
+/* همگام‌سازی خودکار هر بار که برنامه اطلاعاتی را در localStorage ذخیره می‌کند */
+const originalSetItem=Storage.prototype.setItem;
+Storage.prototype.setItem=function(key,value){
+  originalSetItem.call(this,key,value);
+  if(CLOUD_KEYS.includes(key))scheduleCloudSave();
+};
+
+supabaseClient.auth.getSession().then(async ({data,error})=>{
+  if(error){cloudStatus(error.message);return;}
+  if(data.session){
+    cloudUser=data.session.user;
+    await connectCloud();
+  }
+});
+</script>
+
+<script>
+const months=["مهر","آبان","آذر","دی","بهمن","اسفند","فروردین","اردیبهشت","خرداد"];
+const subjects=["ریاضی","فارسی","علوم","مطالعات اجتماعی","هدیه‌های آسمانی","قرآن","تفکر و پژوهش","هنر","کار و فناوری"];
+const books=subjects.slice();
+const levels=["نیاز به تلاش بیشتر","قابل قبول","خوب","خیلی خوب"];
+const levelScore={"نیاز به تلاش بیشتر":1,"قابل قبول":2,"خوب":3,"خیلی خوب":4};
+
+function openSection(id){
+  document.getElementById("dashboard").style.display="none";
+  document.querySelectorAll(".section").forEach(s=>s.style.display="none");
+  document.getElementById(id).style.display="block";
+}
+function showDashboard(){
+  document.getElementById("dashboard").style.display="grid";
+  document.querySelectorAll(".section").forEach(s=>s.style.display="none");
+}
+function getData(key){
+  try{return JSON.parse(localStorage.getItem(key)||"[]")}catch(e){return []}
+}
+function setData(key,data){localStorage.setItem(key,JSON.stringify(data))}
+function fillSelect(id,items){
+  const el=document.getElementById(id);if(!el)return;
+  const old=el.value;el.innerHTML="";
+  items.forEach(x=>el.add(new Option(x,x)));
+  if(items.includes(old))el.value=old;
+}
+function escapeHTML(value){
+  return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function normalizeStudents(){
+  const raw=getData("students");
+  const normalized=raw.map(s=>typeof s==="string"?{name:s,photo:""}:s);
+  if(JSON.stringify(raw)!==JSON.stringify(normalized))setData("students",normalized);
+  return normalized;
+}
+let students=normalizeStudents();
+function studentName(s){return typeof s==="string"?s:s.name}
+function studentPhoto(s){return typeof s==="string"?"":(s.photo||"")}
+function photoHTML(student){
+  const name=studentName(student),photo=studentPhoto(student);
+  return photo?`<img class="student-photo" src="${photo}" alt="عکس ${escapeHTML(name)}">`:`<div class="placeholder">👨‍🎓</div>`;
+}
+
+function renderStudents(){
+  students=normalizeStudents();
+  const list=document.getElementById("studentList");
+  list.innerHTML="";
+  students.forEach((student,index)=>{
+    const div=document.createElement("div");
+    div.className="item student-row";
+    div.draggable=true;
+    div.dataset.index=index;
+
+    const number=document.createElement("span");
+    number.className="student-number";
+    number.textContent=index+1;
+
+    const img=document.createElement("img");
+    img.className="student-photo";
+    img.alt="عکس دانش‌آموز";
+    img.src=studentPhoto(student)||"";
+    if(!studentPhoto(student))img.style.display="none";
+
+    const name=document.createElement("strong");
+    name.textContent=studentName(student);
+
+    const file=document.createElement("input");
+    file.type="file";file.accept="image/*";file.style.maxWidth="230px";
+    file.onchange=()=>uploadStudentPhoto(index,file.files[0]);
+
+    const del=document.createElement("button");
+    del.className="delete";del.textContent="حذف";
+    del.onclick=()=>{
+      if(!confirm("این دانش‌آموز حذف شود؟"))return;
+      students.splice(index,1);setData("students",students);
+      renderStudents();renderAttendance();renderStudentOptions();renderEvents();
+    };
+
+    div.append(number,img,name,file,del);
+    div.addEventListener("dragstart",e=>{
+      div.classList.add("dragging");
+      e.dataTransfer.setData("text/plain",String(index));
+      e.dataTransfer.effectAllowed="move";
+    });
+    div.addEventListener("dragend",()=>{
+      div.classList.remove("dragging");
+      list.querySelectorAll(".student-row").forEach(row=>row.classList.remove("drag-over"));
+    });
+    div.addEventListener("dragover",e=>{
+      e.preventDefault();div.classList.add("drag-over");e.dataTransfer.dropEffect="move";
+    });
+    div.addEventListener("dragleave",()=>div.classList.remove("drag-over"));
+    div.addEventListener("drop",e=>{
+      e.preventDefault();div.classList.remove("drag-over");
+      const from=Number(e.dataTransfer.getData("text/plain"));
+      const to=Number(div.dataset.index);
+      if(from===to||Number.isNaN(from)||Number.isNaN(to))return;
+      const moved=students.splice(from,1)[0];students.splice(to,0,moved);
+      setData("students",students);
+      renderStudents();renderAttendance();renderStudentOptions();renderEvents();
+    });
+    list.appendChild(div);
+  });
+  renderStudentOptions();
+}
+
+function uploadStudentPhoto(index,file){
+  if(!file)return;
+  if(!file.type.startsWith("image/")){alert("لطفاً فایل عکس انتخاب کن.");return}
+  const reader=new FileReader();
+  reader.onload=()=>{
+    students[index].photo=reader.result;
+    setData("students",students);renderStudents();
+  };
+  reader.readAsDataURL(file);
+}
+
+function addStudent(){
+  const input=document.getElementById("studentName"),name=input.value.trim();
+  if(!name){alert("نام دانش‌آموز را وارد کن.");return}
+  if(students.length>=37){alert("حداکثر ۳۷ دانش‌آموز می‌توانی ثبت کنی.");return}
+  if(students.some(s=>studentName(s)===name)){alert("این دانش‌آموز قبلاً ثبت شده است.");return}
+  const file=document.getElementById("studentPhoto").files[0];
+  const save=photo=>{
+    students.push({name,photo:photo||""});setData("students",students);
+    input.value="";document.getElementById("studentPhoto").value="";
+    renderStudents();renderAttendance();renderEvents();
+  };
+  if(file){
+    const reader=new FileReader();reader.onload=()=>save(reader.result);reader.readAsDataURL(file);
+  }else save("");
+}
+
+function renderStudentOptions(){
+  const names=students.map(studentName);
+  ["gradeStudent","reportStudent","yearStudent","talkStudent"].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const old=el.value;el.innerHTML="";
+    if(!names.length){el.add(new Option("ابتدا دانش‌آموز اضافه کن",""));return}
+    names.forEach(n=>el.add(new Option(n,n)));
+    if(names.includes(old))el.value=old;
+  });
+  ["gradeMonth","reportMonth"].forEach(id=>fillSelect(id,months));
+  fillSelect("gradeSubject",subjects);fillSelect("progressBook",books);
+  showProfile("gradeStudent","gradeProfile");
+  showProfile("reportStudent","reportProfile");
+  showProfile("yearStudent","yearProfile");
+  showProfile("talkStudent","talkProfile");
+}
+function showProfile(selectId,containerId){
+  const name=document.getElementById(selectId)?.value;
+  const student=students.find(s=>studentName(s)===name);
+  const box=document.getElementById(containerId);if(!box)return;
+  if(!student){box.innerHTML="";return}
+  box.innerHTML=`<div class="profile">${photoHTML(student)}<strong>${escapeHTML(name)}</strong></div>`;
+}
+
+function saveGrade(){
+  const student=document.getElementById("gradeStudent").value;
+  if(!student){alert("ابتدا دانش‌آموز اضافه کن.");return}
+  const grades=getData("grades");
+  grades.push({student,month:document.getElementById("gradeMonth").value,subject:document.getElementById("gradeSubject").value,level:document.getElementById("gradeLevel").value,note:document.getElementById("gradeNote").value.trim(),id:Date.now()});
+  setData("grades",grades);document.getElementById("gradeNote").value="";
+  renderGrades();renderMonthlyReport();renderYearProgress();
+}
+function deleteGrade(id){
+  setData("grades",getData("grades").filter(x=>x.id!==id));
+  renderGrades();renderMonthlyReport();renderYearProgress();
+}
+function renderGrades(){
+  document.getElementById("gradeList").innerHTML=getData("grades").slice().reverse().map(x=>`
+  <div class="item"><strong>${escapeHTML(x.student)} | ${escapeHTML(x.month)} | ${escapeHTML(x.subject)}</strong>
+  <p>ارزشیابی: ${escapeHTML(x.level)}</p><p>${escapeHTML(x.note||"")}</p>
+  <button class="delete" onclick="deleteGrade(${x.id})">حذف</button></div>`).join("");
+}
+
+function renderMonthlyReport(){
+  const name=document.getElementById("reportStudent").value,month=document.getElementById("reportMonth").value,box=document.getElementById("monthlyReportContent");
+  if(!name){box.innerHTML="ابتدا دانش‌آموز اضافه کن.";return}
+  const records=getData("grades").filter(x=>x.student===name&&x.month===month);
+  const rows=subjects.map(subject=>{
+    const list=records.filter(x=>x.subject===subject);
+    if(!list.length)return `<tr><td>${escapeHTML(subject)}</td><td>ثبت نشده</td><td>—</td></tr>`;
+    const evaluations=list.map(x=>`<div><strong>${escapeHTML(x.level)}</strong>${x.note?`<br>${escapeHTML(x.note)}`:""}</div>`).join("<hr>");
+    return `<tr><td>${escapeHTML(subject)}</td><td>${evaluations}</td><td>${list.length} ارزشیابی</td></tr>`;
+  }).join("");
+  box.innerHTML=`<h3>${escapeHTML(name)} | کارنامه ${escapeHTML(month)}</h3><div class="table-wrap"><table><thead><tr><th>درس</th><th>ارزشیابی و توضیحات</th><th>تعداد ثبت</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function renderYearProgress(){
+  const name=document.getElementById("yearStudent").value,box=document.getElementById("yearProgressContent");
+  if(!name){box.innerHTML="ابتدا دانش‌آموز اضافه کن.";return}
+  const all=getData("grades").filter(x=>x.student===name);
+  let html="";
+  subjects.forEach(subject=>{
+    const rows=months.map(month=>{
+      const found=all.filter(x=>x.subject===subject&&x.month===month);
+      if(!found.length)return "<td>—</td>";
+      const avg=found.reduce((sum,x)=>sum+(levelScore[x.level]||0),0)/found.length;
+      return `<td>${escapeHTML(levels[Math.max(0,Math.min(3,Math.round(avg)-1))])}</td>`;
+    }).join("");
+    const scores=months.map(month=>{
+      const found=all.filter(x=>x.subject===subject&&x.month===month);
+      return found.length?found.reduce((sum,x)=>sum+(levelScore[x.level]||0),0)/found.length:null;
+    });
+    const first=scores.find(x=>x!==null),last=[...scores].reverse().find(x=>x!==null);
+    let change="اطلاعات کافی نیست";
+    if(first!==undefined&&last!==undefined)change=last>first?"پیشرفت نسبت به اولین ثبت":last<first?"کاهش نسبت به اولین ثبت":"بدون تغییر";
+    html+=`<tr><th>${escapeHTML(subject)}</th>${rows}<td>${change}</td></tr>`;
+  });
+  box.innerHTML=`<h3>${escapeHTML(name)} | روند مهر تا خرداد</h3><div class="table-wrap"><table><thead><tr><th>درس</th>${months.map(m=>`<th>${m}</th>`).join("")}<th>روند کلی</th></tr></thead><tbody>${html}</tbody></table></div>`;
+}
+
+function renderAttendance(){
+  const list=document.getElementById("attendanceList");list.innerHTML="";
+  students.forEach((student,index)=>{
+    const row=document.createElement("div");row.className="item student-row";
+    const img=document.createElement("img");img.className="student-photo";img.src=studentPhoto(student)||"";
+    if(!studentPhoto(student))img.style.display="none";
+    const name=document.createElement("strong");name.textContent=(index+1)+" - "+studentName(student)+" : ";
+    const select=document.createElement("select");select.id="attendance-"+index;
+    ["حاضر","غایب","تأخیر"].forEach(status=>select.add(new Option(status,status)));
+    row.append(img,name,select);list.appendChild(row);
+  });
+}
+function saveAttendance(){
+  const date=document.getElementById("attendanceDate").value.trim();
+  if(!date){alert("لطفاً تاریخ را از تقویم انتخاب کن.");return}
+  const records=students.map((s,i)=>({student:studentName(s),status:document.getElementById("attendance-"+i).value}));
+  const all=JSON.parse(localStorage.getItem("attendance")||"{}");
+  all[date]=records;localStorage.setItem("attendance",JSON.stringify(all));
+  alert("حضور و غیاب ذخیره شد.");
+}
+
+function addHomework(){
+  const date=document.getElementById("homeworkDate").value.trim(),subject=document.getElementById("homeworkSubject").value.trim(),text=document.getElementById("homeworkText").value.trim();
+  if(!date||!subject||!text){alert("تاریخ، درس و متن تکلیف را وارد کن.");return}
+  const a=getData("homeworks");a.push({date,subject,text,id:Date.now()});setData("homeworks",a);
+  document.getElementById("homeworkSubject").value="";document.getElementById("homeworkText").value="";renderHomeworks();
+}
+function deleteHomework(id){setData("homeworks",getData("homeworks").filter(x=>x.id!==id));renderHomeworks()}
+function renderHomeworks(){
+  document.getElementById("homeworkList").innerHTML=getData("homeworks").map(x=>`<div class="item"><strong>${escapeHTML(x.date)} | ${escapeHTML(x.subject)}</strong><p>${escapeHTML(x.text)}</p><button class="delete" onclick="deleteHomework(${x.id})">حذف</button></div>`).join("");
+}
+
+function addReminder(){
+  const title=document.getElementById("reminderTitle").value.trim(),date=document.getElementById("reminderDate").value.trim(),text=document.getElementById("reminderText").value.trim();
+  if(!title||!date){alert("عنوان و تاریخ یادآوری را وارد کن.");return}
+  const a=getData("reminders");a.push({title,date,text,done:false,id:Date.now()});setData("reminders",a);
+  document.getElementById("reminderTitle").value="";document.getElementById("reminderText").value="";renderReminders();
+}
+function toggleReminder(id){
+  const a=getData("reminders"),x=a.find(y=>y.id===id);if(x)x.done=!x.done;
+  setData("reminders",a);renderReminders();
+}
+function deleteReminder(id){setData("reminders",getData("reminders").filter(x=>x.id!==id));renderReminders()}
+function renderReminders(){
+  document.getElementById("reminderList").innerHTML=getData("reminders").map(x=>`<div class="item"><strong>${escapeHTML(x.date)} | ${escapeHTML(x.title)}</strong><p>${escapeHTML(x.text||"")}</p><p>وضعیت: ${x.done?"انجام شد":"انجام‌نشده"}</p><button onclick="toggleReminder(${x.id})">${x.done?"بازگرداندن":"علامت‌گذاری انجام‌شده"}</button><button class="delete" onclick="deleteReminder(${x.id})">حذف</button></div>`).join("");
+}
+
+function addEvent(){
+  const title=document.getElementById("eventTitle").value.trim();
+  const date=document.getElementById("eventDate").value.trim();
+  const text=document.getElementById("eventText").value.trim();
+  const selectedStudents=[...document.querySelectorAll("#eventStudents input:checked")].map(input=>input.value);
+  if(!title||!date||!text){alert("عنوان، تاریخ و شرح واقعه را وارد کن.");return}
+  const events=getData("classEvents");events.push({title,date,text,students:selectedStudents,id:Date.now()});setData("classEvents",events);
+  document.getElementById("eventTitle").value="";document.getElementById("eventText").value="";
+  document.querySelectorAll("#eventStudents input").forEach(input=>input.checked=false);
+  renderEvents();
+}
+function deleteEvent(id){setData("classEvents",getData("classEvents").filter(x=>x.id!==id));renderEvents()}
+function renderEvents(){
+  const choices=document.getElementById("eventStudents");
+  choices.innerHTML=students.map(student=>`<label><input type="checkbox" value="${escapeHTML(studentName(student))}">${escapeHTML(studentName(student))}</label>`).join("")||"ابتدا از بخش دانش‌آموزان، دانش‌آموز اضافه کن.";
+  document.getElementById("eventList").innerHTML=getData("classEvents").slice().reverse().map(x=>{
+    const names=Array.isArray(x.students)&&x.students.length?x.students.map(escapeHTML).join("، "):"کل کلاس";
+    return `<div class="item"><strong>${escapeHTML(x.date)} | ${escapeHTML(x.title)}</strong><p>دانش‌آموزان مرتبط: ${names}</p><p>${escapeHTML(x.text)}</p><button class="delete" onclick="deleteEvent(${x.id})">حذف</button></div>`;
+  }).join("");
+}
+
+function addProgress(){
+  const book=document.getElementById("progressBook").value,page=document.getElementById("progressPage").value.trim(),date=document.getElementById("progressDate").value.trim(),note=document.getElementById("progressNote").value.trim();
+  if(!page||!date){alert("صفحه و تاریخ تدریس را وارد کن.");return}
+  const a=getData("teachingProgress");a.push({book,page,date,note,id:Date.now()});setData("teachingProgress",a);
+  document.getElementById("progressPage").value="";document.getElementById("progressNote").value="";renderProgress();
+}
+function deleteProgress(id){setData("teachingProgress",getData("teachingProgress").filter(x=>x.id!==id));renderProgress()}
+function renderProgress(){
+  document.getElementById("progressList").innerHTML=getData("teachingProgress").map(x=>`<div class="item"><strong>${escapeHTML(x.date)} | ${escapeHTML(x.book)} | صفحه ${escapeHTML(x.page)}</strong><p>${escapeHTML(x.note||"")}</p><button class="delete" onclick="deleteProgress(${x.id})">حذف</button></div>`).join("");
+}
+
+function addMeeting(){
+  const title=document.getElementById("meetingTitle").value.trim(),date=document.getElementById("meetingDate").value.trim(),text=document.getElementById("meetingText").value.trim();
+  if(!title||!date){alert("موضوع و تاریخ جلسه را وارد کن.");return}
+  const a=getData("parentMeetings");a.push({title,date,text,id:Date.now()});setData("parentMeetings",a);
+  document.getElementById("meetingTitle").value="";document.getElementById("meetingText").value="";renderMeetings();
+}
+function deleteMeeting(id){setData("parentMeetings",getData("parentMeetings").filter(x=>x.id!==id));renderMeetings()}
+function renderMeetings(){
+  document.getElementById("meetingList").innerHTML=getData("parentMeetings").slice().reverse().map(x=>`<div class="item"><strong>${escapeHTML(x.date)} | ${escapeHTML(x.title)}</strong><p>${escapeHTML(x.text||"")}</p><button class="delete" onclick="deleteMeeting(${x.id})">حذف</button></div>`).join("");
+}
+
+function addParentTalk(){
+  const student=document.getElementById("talkStudent").value,parent=document.getElementById("talkParent").value.trim(),date=document.getElementById("talkDate").value.trim(),text=document.getElementById("talkText").value.trim();
+  if(!student||!date||!text){alert("دانش‌آموز، تاریخ و متن گفت‌وگو را وارد کن.");return}
+  const a=getData("parentTalks");a.push({student,parent,date,text,id:Date.now()});setData("parentTalks",a);
+  document.getElementById("talkParent").value="";document.getElementById("talkText").value="";renderParentTalks();
+}
+function deleteParentTalk(id){setData("parentTalks",getData("parentTalks").filter(x=>x.id!==id));renderParentTalks()}
+function renderParentTalks(){
+  const name=document.getElementById("talkStudent").value;
+  const talks=getData("parentTalks").filter(x=>x.student===name).slice().reverse();
+  document.getElementById("parentTalkList").innerHTML=talks.map(x=>`<div class="item"><strong>${escapeHTML(x.date)} | ${escapeHTML(x.student)} | ${escapeHTML(x.parent||"ولی دانش‌آموز")}</strong><p>${escapeHTML(x.text)}</p><button class="delete" onclick="deleteParentTalk(${x.id})">حذف</button></div>`).join("");
+}
+
+renderStudents();
+renderAttendance();
+renderGrades();
+renderMonthlyReport();
+renderYearProgress();
+renderHomeworks();
+renderReminders();
+renderEvents();
+renderProgress();
+renderMeetings();
+renderParentTalks();
+</script>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
+<script>
+$(function(){
+  if($.fn.pDatepicker){
+    $(".jalali-date").pDatepicker({format:"YYYY/MM/DD",autoClose:true,initialValue:false});
+  }else{
+    alert("تقویم شمسی بارگذاری نشد. اتصال اینترنت را بررسی کن.");
+  }
+});
+</script>
+
+</body>
+</html>
